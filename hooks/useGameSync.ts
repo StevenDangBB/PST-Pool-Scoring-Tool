@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { DEFAULT_GAME_DATA, EMBEDDED_FIREBASE_CONFIG, appId } from '../constants';
 import { getSessionId } from '../utils';
 import type { GameData } from '../types';
@@ -12,52 +11,68 @@ export const useGameSync = () => {
     const [isLoadingRoom, setIsLoadingRoom] = useState(true);
     const [syncing, setSyncing] = useState(false);
     const [permissionError, setPermissionError] = useState(false);
+    const initAttempts = useRef(0);
 
-    // Initial Firebase Connection
+    // Initial Firebase Connection with Polling
     useEffect(() => {
         const config = EMBEDDED_FIREBASE_CONFIG;
-        if (!config || !window.FirebaseCore) {
-            setIsLoadingRoom(false);
-            setIsOnline(false);
-            return;
-        }
-        setIsOnline(true);
-
-        try {
-            let app;
-            try { app = window.FirebaseCore.initializeApp(config); } catch (e) { /* Already initialized */ }
-            const auth = window.FirebaseAuth.getAuth();
-            
-            const initAuth = async () => {
-                try {
-                    if (window.__initial_auth_token) {
-                        await window.FirebaseAuth.signInWithCustomToken(auth, window.__initial_auth_token);
-                    } else {
-                        await window.FirebaseAuth.signInAnonymously(auth);
-                    }
-                } catch (e) { 
-                    console.error("Auth error:", e); 
-                    setIsLoadingRoom(false); 
+        
+        const initFirebase = () => {
+            if (!window.FirebaseCore || !window.FirebaseAuth) {
+                if (initAttempts.current < 50) { // Try for about 5 seconds
+                    initAttempts.current++;
+                    setTimeout(initFirebase, 100);
+                } else {
+                    console.warn("Firebase scripts failed to load in time.");
+                    setIsLoadingRoom(false);
+                    setIsOnline(false);
                 }
-            };
-            initAuth();
-            
-            const unsubscribeAuth = window.FirebaseAuth.onAuthStateChanged(auth, setUser);
-            const handleHashChange = () => {
-                setSessionId(getSessionId());
-                setIsLoadingRoom(true);
-            };
-            window.addEventListener('hashchange', handleHashChange);
+                return;
+            }
 
-            return () => {
-                unsubscribeAuth();
-                window.removeEventListener('hashchange', handleHashChange);
-            };
-        } catch (e) {
-            console.error("Firebase Init Error", e);
-            setIsOnline(false);
-            setIsLoadingRoom(false);
-        }
+            // Firebase is ready
+            try {
+                let app;
+                try { app = window.FirebaseCore.initializeApp(config); } catch (e) { /* Already initialized */ }
+                const auth = window.FirebaseAuth.getAuth();
+                
+                const initAuth = async () => {
+                    try {
+                        if (window.__initial_auth_token) {
+                            await window.FirebaseAuth.signInWithCustomToken(auth, window.__initial_auth_token);
+                        } else {
+                            await window.FirebaseAuth.signInAnonymously(auth);
+                        }
+                        setIsOnline(true);
+                    } catch (e) { 
+                        console.error("Auth error:", e); 
+                        setIsLoadingRoom(false); 
+                    }
+                };
+                initAuth();
+                
+                const unsubscribeAuth = window.FirebaseAuth.onAuthStateChanged(auth, setUser);
+                const handleHashChange = () => {
+                    setSessionId(getSessionId());
+                    setIsLoadingRoom(true);
+                };
+                window.addEventListener('hashchange', handleHashChange);
+
+                return () => {
+                    unsubscribeAuth();
+                    window.removeEventListener('hashchange', handleHashChange);
+                };
+            } catch (e) {
+                console.error("Firebase Init Error", e);
+                setIsOnline(false);
+                setIsLoadingRoom(false);
+            }
+        };
+
+        const cleanup = initFirebase();
+        return () => {
+            if (typeof cleanup === 'function') cleanup();
+        };
     }, []);
 
     // Firestore Sync
