@@ -1,0 +1,5 @@
+{
+  "name": "PST - Real-time Pool Scoring Tool",
+  "description": "A real-time scoring and billing application for pool games, supporting both 1v1 and team play modes. Features live synchronization via Firebase for shared scorekeeping.",
+  "requestFramePermissions": []
+}
