@@ -1,5 +1,5 @@
 
-import type { Theme, PlayerColor, GameData, FirebaseConfig } from './types';
+import type { Theme, PlayerColor, GameData } from './types';
 
 export const getPlayerColors = (theme: Theme): PlayerColor[] => [
     { card: theme === 'dark' ? 'bg-blue-900/20' : 'bg-blue-50', bar: 'bg-blue-500', btn: 'hover:bg-blue-100 dark:hover:bg-blue-900/40 text-blue-600', text: 'text-blue-600', watermark: theme === 'dark' ? 'text-white/5' : 'text-blue-500/10' },
@@ -11,15 +11,6 @@ export const getPlayerColors = (theme: Theme): PlayerColor[] => [
     { card: theme === 'dark' ? 'bg-orange-900/20' : 'bg-orange-50', bar: 'bg-orange-500', btn: 'hover:bg-orange-100 dark:hover:bg-orange-900/40 text-orange-600', text: 'text-orange-600', watermark: theme === 'dark' ? 'text-white/5' : 'text-orange-500/10' },
     { card: theme === 'dark' ? 'bg-teal-900/20' : 'bg-teal-50', bar: 'bg-teal-500', btn: 'hover:bg-teal-100 dark:hover:bg-teal-900/40 text-teal-600', text: 'text-teal-600', watermark: theme === 'dark' ? 'text-white/5' : 'text-teal-500/10' },
 ];
-
-export const EMBEDDED_FIREBASE_CONFIG: FirebaseConfig = {
-    apiKey: "AIzaSyD2F3eHYFkTpzVQQ0IvLmh8-8ieJKR4XQ4",
-    authDomain: "pst-tool.firebaseapp.com",
-    projectId: "pst-tool",
-    storageBucket: "pst-tool.firebasestorage.app",
-    messagingSenderId: "660912727646",
-    appId: "1:660912727646:web:4817123c8df674aa57f6cf"
-};
 
 export const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'pst-tool-v2';
 

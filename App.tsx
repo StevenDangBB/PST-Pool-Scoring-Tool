@@ -12,22 +12,22 @@ import BaseModal from './components/modals/BaseModal';
 import { useGameSync } from './hooks/useGameSync';
 
 const App: React.FC = () => {
-    // State
-    const [theme, setTheme] = useState<Theme>('light');
+    // State - Default Theme set to 'dark'
+    const [theme, setTheme] = useState<Theme>('dark');
     const [activeView, setActiveView] = useState<'score' | 'bill'>('score');
     const [winner, setWinner] = useState<string | null>(null);
     const [lastSessionBackup, setLastSessionBackup] = useState<GameData | null>(null);
     const [showCopied, setShowCopied] = useState(false);
     const [showConfigModal, setShowConfigModal] = useState(false);
-    const [isFocusMode, setIsFocusMode] = useState(false);
+    const [isFocusMode, setIsFocusMode] = useState(true);
     const [isManageMode, setIsManageMode] = useState(false);
     const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
     const [streak, setStreak] = useState<{ playerId: number | null; count: number }>({ playerId: null, count: 0 });
 
-    // Custom Hook for Firebase Logic
+    // Custom Hook for P2P Sync
     const { 
         sessionId, gameData, isOnline, isLoadingRoom, 
-        syncing, permissionError, handleUpdate 
+        syncing, permissionError, handleUpdate, isHost, peerCount 
     } = useGameSync();
 
     const playerColors = useMemo(() => getPlayerColors(theme), [theme]);
@@ -36,6 +36,37 @@ const App: React.FC = () => {
     const themeClasses = theme === 'dark' ? 'bg-[#0a0510] text-slate-100' : 'bg-slate-50 text-slate-900';
     const glassPanel = theme === 'dark' ? 'bg-white/[0.03] border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.6)]' : 'bg-white/70 border-slate-200 shadow-[0_8px_32px_rgba(0,0,0,0.05)]';
     const subPanel = theme === 'dark' ? 'bg-black/40 border-white/5' : 'bg-white border border-slate-200';
+
+    // Idle Timer: Revert to Full Screen (Focus Mode) after 21s of inactivity
+    useEffect(() => {
+        const isDefaultState = isFocusMode && activeView === 'score' && !isHistoryModalOpen && !showConfigModal;
+        if (isDefaultState) return;
+
+        let timeoutId: number;
+
+        const revertToFullScreen = () => {
+            setIsFocusMode(true);
+            setActiveView('score');
+            setIsHistoryModalOpen(false);
+            setShowConfigModal(false);
+            setIsManageMode(false);
+        };
+
+        const resetTimer = () => {
+            window.clearTimeout(timeoutId);
+            timeoutId = window.setTimeout(revertToFullScreen, 21000);
+        };
+
+        const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click', 'wheel'];
+        
+        resetTimer();
+        events.forEach(e => window.addEventListener(e, resetTimer));
+
+        return () => {
+            window.clearTimeout(timeoutId);
+            events.forEach(e => window.removeEventListener(e, resetTimer));
+        };
+    }, [isFocusMode, activeView, isHistoryModalOpen, showConfigModal, isManageMode]);
 
     // Game Logic Actions
     const addHistory = useCallback((prevData: GameData, msg: string, type: HistoryFilter = 'info'): HistoryEntry[] => {
@@ -57,6 +88,7 @@ const App: React.FC = () => {
     }, []);
 
     const updateScore = useCallback((mode: '1vs1' | 'den', id: number, delta: number) => {
+        if (!isHost) return; // Viewers cannot update score
         if (winner) return;
 
         if (delta > 0) {
@@ -98,16 +130,18 @@ const App: React.FC = () => {
         const changeStr = delta > 0 ? `+${delta}` : `${delta}`;
         newData.history = addHistory(newData, `${playerName}: ${changeStr} (${oldScore} → ${newScore})`, 'score');
         handleUpdate(newData);
-    }, [gameData, winner, streak, addHistory, handleUpdate]);
+    }, [gameData, winner, streak, addHistory, handleUpdate, isHost]);
 
     const editName = useCallback((mode: '1vs1' | 'den', id: number, newName: string) => {
+        if (!isHost) return;
         const newData = { ...gameData };
         if (mode === '1vs1') newData.players1vs1 = gameData.players1vs1.map(p => p.id === id ? { ...p, name: newName } : p);
         else newData.playersDen = gameData.playersDen.map(p => p.id === id ? { ...p, name: newName } : p);
         handleUpdate(newData);
-    }, [gameData, handleUpdate]);
+    }, [gameData, handleUpdate, isHost]);
 
     const addPlayerDen = useCallback(() => {
+        if (!isHost) return;
         const newData = { ...gameData };
         const nextColorIdx = newData.playersDen.length % playerColors.length;
         const newName = `PLAYER ${String.fromCharCode(65 + gameData.playersDen.length)}`;
@@ -120,9 +154,10 @@ const App: React.FC = () => {
         }];
         newData.history = addHistory(newData, `Thêm người chơi: ${newName}`, 'system');
         handleUpdate(newData);
-    }, [gameData, playerColors, addHistory, handleUpdate]);
+    }, [gameData, playerColors, addHistory, handleUpdate, isHost]);
 
     const removePlayerDen = useCallback((id: number) => {
+        if (!isHost) return;
         if (gameData.playersDen.length <= 2) return;
         const newData = { ...gameData };
         const playerToRemove = newData.playersDen.find(p => p.id === id);
@@ -131,9 +166,10 @@ const App: React.FC = () => {
             newData.history = addHistory(newData, `Xóa người chơi: ${playerToRemove.name}`, 'system');
         }
         handleUpdate(newData);
-    }, [gameData, addHistory, handleUpdate]);
+    }, [gameData, addHistory, handleUpdate, isHost]);
 
     const autoBalance = useCallback((targetId: number) => {
+        if (!isHost) return;
         const currentSumExcludingTarget = gameData.playersDen.filter(p => p.id !== targetId).reduce((acc, p) => acc + p.score, 0);
         const newData = { ...gameData };
         let playerName = "", oldScore = 0;
@@ -149,9 +185,10 @@ const App: React.FC = () => {
         });
         newData.history = addHistory(newData, `Cân bằng: ${playerName} (${oldScore} → ${newScore})`, 'balance');
         handleUpdate(newData);
-    }, [gameData, addHistory, handleUpdate]);
+    }, [gameData, addHistory, handleUpdate, isHost]);
     
     const movePlayer = useCallback((index: number, direction: 1 | -1) => {
+        if (!isHost) return;
         const newData = { ...gameData };
         const players = [...newData.playersDen];
         const newIndex = index + direction;
@@ -160,9 +197,10 @@ const App: React.FC = () => {
             newData.playersDen = players;
             handleUpdate(newData);
         }
-    }, [gameData, handleUpdate]);
+    }, [gameData, handleUpdate, isHost]);
 
     const resetAllData = useCallback(() => {
+        if (!isHost) return;
         if(window.confirm("Are you sure you want to reset all data for this room?")) {
             setLastSessionBackup(gameData);
             const newData = JSON.parse(JSON.stringify(DEFAULT_GAME_DATA));
@@ -171,13 +209,14 @@ const App: React.FC = () => {
             setStreak({ playerId: null, count: 0 });
             handleUpdate(newData);
         }
-    }, [gameData, handleUpdate]);
+    }, [gameData, handleUpdate, isHost]);
 
     const recallData = useCallback(() => {
+        if (!isHost) return;
         if (!lastSessionBackup) return;
         handleUpdate(lastSessionBackup);
         setLastSessionBackup(null);
-    }, [lastSessionBackup, handleUpdate]);
+    }, [lastSessionBackup, handleUpdate, isHost]);
     
     const shareRoom = useCallback(async () => {
         try {
@@ -224,7 +263,7 @@ const App: React.FC = () => {
             <div className={`h-screen flex items-center justify-center ${themeClasses}`}>
                 <div className="flex flex-col items-center gap-4">
                     <div className="loading-spinner border-fuchsia-500"></div>
-                    <p className="text-sm font-bold tracking-widest uppercase opacity-60 animate-pulse">Connecting Room...</p>
+                    <p className="text-sm font-bold tracking-widest uppercase opacity-60 animate-pulse">Establishing P2P Connection...</p>
                 </div>
             </div>
         );
@@ -250,6 +289,13 @@ const App: React.FC = () => {
                     <Icon name="check" size={16} /> Room Link Copied!
                 </div>
             )}
+
+            {/* Viewer Mode Badge */}
+            {!isHost && isOnline && (
+                 <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[90] px-4 py-1 bg-amber-500/90 backdrop-blur-md text-white rounded-full text-xs font-bold shadow-lg flex items-center gap-2 pointer-events-none">
+                    <Icon name="users" size={12} /> VIEWER MODE
+                </div>
+            )}
             
             {/* Main Components */}
             <Header 
@@ -260,6 +306,13 @@ const App: React.FC = () => {
                 handleExportCSV={handleExportCSV} setShowConfigModal={setShowConfigModal}
             />
             
+            {/* Host Status for Debug/Info */}
+            {isFocusMode && isOnline && isHost && (
+                <div className="absolute top-4 right-4 z-[60] opacity-30 text-[10px] font-mono">
+                    Viewers: {peerCount}
+                </div>
+            )}
+            
             {!isFocusMode && (
                 <div className="px-6 py-2 flex gap-3">
                     <button onClick={() => setActiveView('score')} className={`flex-1 py-3 px-4 rounded-2xl font-black text-[10px] tracking-widest flex items-center justify-center gap-2 transition-all duration-300 transform ${activeView === 'score' ? 'bg-fuchsia-600 text-white shadow-lg translate-y-0' : 'opacity-40 translate-y-1 hover:translate-y-0 hover:opacity-70'}`}><Icon name="trophy" size={16} /> SCORE</button>
@@ -267,7 +320,7 @@ const App: React.FC = () => {
                 </div>
             )}
             
-            <main className="flex-1 flex flex-col overflow-hidden px-6 py-4 relative">
+            <main className={`flex-1 flex flex-col overflow-hidden px-6 py-4 relative ${!isHost && isOnline ? 'pointer-events-none opacity-90' : ''}`}>
                  {/* View Transitions */}
                 <div className={`absolute inset-0 px-6 py-4 transition-all duration-500 ease-in-out ${activeView === 'score' ? 'opacity-100 translate-x-0 z-10' : 'opacity-0 -translate-x-10 pointer-events-none'}`}>
                     <ScoreBoard 

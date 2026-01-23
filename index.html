@@ -8,22 +8,13 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Confetti -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- PeerJS for WebRTC P2P -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,600;0,800;0,900;1,800;1,900&display=swap" rel="stylesheet">
     
-    <!-- Firebase Shim: Inject Firebase Global Objects for useGameSync hook -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-
-        window.FirebaseCore = { initializeApp };
-        window.FirebaseAuth = { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken };
-        window.FirebaseStore = { getFirestore, doc, setDoc, onSnapshot, updateDoc };
-    </script>
-
     <style>
-        body { font-family: 'Inter', sans-serif; touch-action: manipulation; }
+        body { font-family: 'Inter', sans-serif; touch-action: manipulation; background-color: #0a0510; }
         .glass-effect { backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); }
         input[type="number"]::-webkit-inner-spin-button, 
         input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }

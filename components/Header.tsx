@@ -29,6 +29,13 @@ const Header: React.FC<HeaderProps> = ({
     subPanel, glassPanel, gameData, lastSessionBackup, shareRoom,
     setIsHistoryModalOpen, resetAllData, recallData, handleExportCSV, setShowConfigModal
 }) => {
+    
+    // Function to open a new room in a new tab for parallel management
+    const openParallelRoom = () => {
+        const url = `${window.location.origin}${window.location.pathname}#${generateRoomId()}`;
+        window.open(url, '_blank');
+    };
+
     return (
         <header className={`px-6 py-4 flex justify-between items-center ${glassPanel} glass-effect border-b z-50 transition-all ${isFocusMode ? 'border-none bg-transparent shadow-none' : ''}`}>
             <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setIsFocusMode(!isFocusMode)}>
@@ -46,7 +53,12 @@ const Header: React.FC<HeaderProps> = ({
             {!isFocusMode && (
                 <div className="flex gap-2">
                     {!isOnline && <button onClick={() => setShowConfigModal(true)} className={`p-2.5 rounded-2xl ${subPanel} text-red-500 animate-pulse`} title="Setup Sync"><Icon name="cloudOff" size={18} /></button>}
-                    {isOnline && <button onClick={() => window.location.hash = generateRoomId()} className={`p-2.5 rounded-2xl ${subPanel} text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 transition-colors`} title="Create New Room"><Icon name="plusSquare" size={18} /></button>}
+                    {isOnline && (
+                        <>
+                            <button onClick={openParallelRoom} className={`p-2.5 rounded-2xl ${subPanel} text-fuchsia-600 hover:bg-fuchsia-50 dark:hover:bg-fuchsia-900/20 transition-colors`} title="Open Parallel Room (New Tab)"><Icon name="plus" size={18} /></button>
+                            <button onClick={() => window.location.hash = generateRoomId()} className={`p-2.5 rounded-2xl ${subPanel} text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 transition-colors`} title="Reset Current Room"><Icon name="plusSquare" size={18} /></button>
+                        </>
+                    )}
                     <button onClick={() => setIsHistoryModalOpen(true)} className={`p-2.5 rounded-2xl ${subPanel} hover:scale-105 transition-transform`} title="History"><Icon name="history" size={18} /></button>
                     <button onClick={shareRoom} className={`p-2.5 rounded-2xl ${subPanel} hover:scale-105 transition-transform`} title="Share Room"><Icon name="share" size={18} /></button>
                     {lastSessionBackup && <button onClick={recallData} className="p-2.5 rounded-2xl bg-cyan-500/10 text-cyan-500 border border-cyan-500/20 animate-pulse" title="Undo Reset"><Icon name="undo" size={18} /></button>}
