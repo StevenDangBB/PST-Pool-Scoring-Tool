@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { DEFAULT_GAME_DATA, getPlayerColors } from './constants';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { DEFAULT_GAME_DATA, getPlayerColors, SFX } from './constants';
 import { generateRoomId, getCurrentTime, calculateBillingData } from './utils';
 import type { GameData, Theme, HistoryEntry, Player, HistoryFilter } from './types';
 import Icon from './components/Icon';
@@ -9,6 +9,9 @@ import ScoreBoard from './components/ScoreBoard';
 import BillingView from './components/BillingView';
 import HistoryModal from './components/modals/HistoryModal';
 import BaseModal from './components/modals/BaseModal';
+import QRCodeModal from './components/modals/QRCodeModal';
+import ReactionOverlay from './components/ReactionOverlay';
+import ShotClock from './components/ShotClock'; // Import ShotClock
 import { useGameSync } from './hooks/useGameSync';
 
 const App: React.FC = () => {
@@ -19,6 +22,7 @@ const App: React.FC = () => {
     const [lastSessionBackup, setLastSessionBackup] = useState<GameData | null>(null);
     const [showCopied, setShowCopied] = useState(false);
     const [showConfigModal, setShowConfigModal] = useState(false);
+    const [showQRModal, setShowQRModal] = useState(false);
     const [isFocusMode, setIsFocusMode] = useState(true);
     const [isManageMode, setIsManageMode] = useState(false);
     const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
@@ -27,7 +31,8 @@ const App: React.FC = () => {
     // Custom Hook for P2P Sync
     const { 
         sessionId, gameData, isOnline, isLoadingRoom, 
-        syncing, permissionError, handleUpdate, isHost, peerCount 
+        syncing, permissionError, handleUpdate, isHost, peerCount,
+        lastReaction, sendReaction, pendingCommand, setPendingCommand, sendCommand
     } = useGameSync();
 
     const playerColors = useMemo(() => getPlayerColors(theme), [theme]);
@@ -37,9 +42,110 @@ const App: React.FC = () => {
     const glassPanel = theme === 'dark' ? 'bg-white/[0.03] border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.6)]' : 'bg-white/70 border-slate-200 shadow-[0_8px_32px_rgba(0,0,0,0.05)]';
     const subPanel = theme === 'dark' ? 'bg-black/40 border-white/5' : 'bg-white border border-slate-200';
 
-    // Idle Timer: Revert to Full Screen (Focus Mode) after 21s of inactivity
+    // Audio Refs
+    const audioRef = useRef<HTMLAudioElement>(new Audio());
+
+    const playSound = (type: 'CLICK' | 'WIN' | 'BUZZER' | 'TICK' | 'EXT') => {
+        if(audioRef.current) {
+            audioRef.current.src = SFX[type];
+            audioRef.current.volume = type === 'TICK' ? 0.6 : 1.0;
+            audioRef.current.play().catch(e => console.log("Audio play failed", e));
+        }
+    };
+
+    // Handle Remote Commands from Viewers
     useEffect(() => {
-        const isDefaultState = isFocusMode && activeView === 'score' && !isHistoryModalOpen && !showConfigModal;
+        if (pendingCommand && isHost) {
+            if (pendingCommand.action === 'SCORE' && pendingCommand.mode && pendingCommand.id !== undefined && pendingCommand.delta !== undefined) {
+                updateScore(pendingCommand.mode, pendingCommand.id, pendingCommand.delta);
+            } else if (pendingCommand.action === 'CLOCK' && pendingCommand.clockAction) {
+                handleShotClockControl(pendingCommand.clockAction, pendingCommand.clockValue);
+            }
+            setPendingCommand(null);
+        }
+    }, [pendingCommand, isHost]);
+
+    // Shot Clock Logic (Host Only Timer)
+    useEffect(() => {
+        if (!isHost || !gameData.shotClock.isRunning || winner) return;
+
+        const timer = setInterval(() => {
+            const nextSeconds = gameData.shotClock.seconds - 1;
+            
+            // Audio Triggers for Host
+            if (nextSeconds <= 10 && nextSeconds > 0) {
+                playSound('TICK');
+            }
+            if (nextSeconds === 0) {
+                playSound('BUZZER');
+            }
+
+            handleUpdate({
+                ...gameData,
+                shotClock: {
+                    ...gameData.shotClock,
+                    seconds: Math.max(0, nextSeconds),
+                    isRunning: nextSeconds > 0
+                }
+            });
+        }, 1000);
+
+        return () => clearInterval(timer);
+    }, [gameData.shotClock, isHost, winner]);
+
+    // Client Side Audio Trigger for Clock (Listen to changes)
+    useEffect(() => {
+        if (!isHost && gameData.shotClock.isRunning) {
+            if (gameData.shotClock.seconds <= 10 && gameData.shotClock.seconds > 0) {
+                 playSound('TICK');
+            }
+             if (gameData.shotClock.seconds === 0) {
+                 playSound('BUZZER');
+            }
+        }
+    }, [gameData.shotClock.seconds, isHost]);
+
+
+    const handleShotClockControl = useCallback((action: 'START' | 'STOP' | 'RESET' | 'EXT' | 'SET_TIME', value?: number) => {
+        if (!isHost) {
+            // Viewer requesting clock control
+            sendCommand({ action: 'CLOCK', clockAction: action, clockValue: value });
+            return;
+        }
+
+        const current = gameData.shotClock;
+        let newState = { ...current };
+
+        switch (action) {
+            case 'START':
+                newState.isRunning = true;
+                break;
+            case 'STOP':
+                newState.isRunning = false;
+                break;
+            case 'RESET':
+                newState.seconds = current.initialSeconds;
+                newState.isRunning = false;
+                break;
+            case 'EXT':
+                newState.seconds += 30;
+                playSound('EXT');
+                break;
+            case 'SET_TIME':
+                if (value) {
+                    newState.initialSeconds = value;
+                    newState.seconds = value;
+                    newState.isRunning = false;
+                }
+                break;
+        }
+
+        handleUpdate({ ...gameData, shotClock: newState });
+    }, [gameData, isHost, handleUpdate, sendCommand]);
+
+    // Idle Timer
+    useEffect(() => {
+        const isDefaultState = isFocusMode && activeView === 'score' && !isHistoryModalOpen && !showConfigModal && !showQRModal;
         if (isDefaultState) return;
 
         let timeoutId: number;
@@ -49,6 +155,7 @@ const App: React.FC = () => {
             setActiveView('score');
             setIsHistoryModalOpen(false);
             setShowConfigModal(false);
+            setShowQRModal(false);
             setIsManageMode(false);
         };
 
@@ -66,7 +173,7 @@ const App: React.FC = () => {
             window.clearTimeout(timeoutId);
             events.forEach(e => window.removeEventListener(e, resetTimer));
         };
-    }, [isFocusMode, activeView, isHistoryModalOpen, showConfigModal, isManageMode]);
+    }, [isFocusMode, activeView, isHistoryModalOpen, showConfigModal, isManageMode, showQRModal]);
 
     // Game Logic Actions
     const addHistory = useCallback((prevData: GameData, msg: string, type: HistoryFilter = 'info'): HistoryEntry[] => {
@@ -88,7 +195,12 @@ const App: React.FC = () => {
     }, []);
 
     const updateScore = useCallback((mode: '1vs1' | 'den', id: number, delta: number) => {
-        if (!isHost) return; // Viewers cannot update score
+        // If Viewer: Send Command instead of updating directly
+        if (!isHost) {
+            sendCommand({ action: 'SCORE', mode, id, delta });
+            return;
+        }
+
         if (winner) return;
 
         if (delta > 0) {
@@ -127,10 +239,20 @@ const App: React.FC = () => {
             });
         }
 
+        // Auto Reset Shot Clock on Score (Mosconi style)
+        // Directly update the newData object to avoid race condition with handleShotClockControl
+        if (delta > 0) {
+            newData.shotClock = {
+                ...newData.shotClock,
+                seconds: newData.shotClock.initialSeconds,
+                isRunning: false
+            };
+        }
+
         const changeStr = delta > 0 ? `+${delta}` : `${delta}`;
         newData.history = addHistory(newData, `${playerName}: ${changeStr} (${oldScore} → ${newScore})`, 'score');
         handleUpdate(newData);
-    }, [gameData, winner, streak, addHistory, handleUpdate, isHost]);
+    }, [gameData, winner, streak, addHistory, handleUpdate, isHost, sendCommand]);
 
     const editName = useCallback((mode: '1vs1' | 'den', id: number, newName: string) => {
         if (!isHost) return;
@@ -219,11 +341,7 @@ const App: React.FC = () => {
     }, [lastSessionBackup, handleUpdate, isHost]);
     
     const shareRoom = useCallback(async () => {
-        try {
-            await navigator.clipboard.writeText(window.location.href);
-            setShowCopied(true);
-            setTimeout(() => setShowCopied(false), 2000);
-        } catch (err) { console.error('Failed to copy: ', err); }
+        setShowQRModal(true);
     }, []);
 
     const handleExportCSV = useCallback(() => {
@@ -271,7 +389,9 @@ const App: React.FC = () => {
     
     return (
         <div className={`h-screen flex flex-col transition-colors duration-500 ${themeClasses} overflow-hidden`}>
-            {/* Global Overlays */}
+            
+            <ReactionOverlay reaction={lastReaction} />
+            
             {permissionError && <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/90 p-6 backdrop-blur-md">Error: Permission Denied</div>}
             
             <HistoryModal 
@@ -281,23 +401,31 @@ const App: React.FC = () => {
                 glassPanel={glassPanel}
                 subPanel={subPanel}
             />
+
+            <QRCodeModal 
+                isOpen={showQRModal} 
+                onClose={() => setShowQRModal(false)} 
+                url={window.location.href} 
+            />
             
             {showConfigModal && <BaseModal isOpen={showConfigModal} onClose={() => setShowConfigModal(false)} title="Config"><div className="p-4 text-center">Offline Config Placeholder</div></BaseModal>}
 
-            {showCopied && (
-                <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 bg-cyan-600/90 backdrop-blur-md text-white rounded-full text-sm font-bold shadow-2xl toast-fade-in flex items-center gap-2">
-                    <Icon name="check" size={16} /> Room Link Copied!
-                </div>
-            )}
-
-            {/* Viewer Mode Badge */}
+            {/* Viewer Mode Floating Controls */}
             {!isHost && isOnline && (
-                 <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[90] px-4 py-1 bg-amber-500/90 backdrop-blur-md text-white rounded-full text-xs font-bold shadow-lg flex items-center gap-2 pointer-events-none">
-                    <Icon name="users" size={12} /> VIEWER MODE
+                 <div className="fixed bottom-32 right-6 z-[90] flex flex-col gap-3 items-end">
+                    <div className="px-4 py-2 bg-amber-500/90 backdrop-blur-md text-white rounded-full text-xs font-bold shadow-lg flex items-center gap-2 pointer-events-none mb-2">
+                        <Icon name="users" size={14} /> REMOTE CONNECTED
+                    </div>
+                    <button onClick={() => sendReaction('❤️')} className="w-14 h-14 bg-red-500 rounded-full shadow-xl flex items-center justify-center hover:scale-110 transition-transform active:scale-90 border-2 border-white/20">
+                        <Icon name="heart" size={28} fill="currentColor" className="text-white"/>
+                    </button>
+                    <button onClick={() => sendReaction('👏')} className="w-14 h-14 bg-blue-500 rounded-full shadow-xl flex items-center justify-center text-2xl hover:scale-110 transition-transform active:scale-90 border-2 border-white/20">
+                        👏
+                    </button>
                 </div>
             )}
             
-            {/* Main Components */}
+            {/* Header */}
             <Header 
                 sessionId={sessionId} isOnline={isOnline} isFocusMode={isFocusMode} setIsFocusMode={setIsFocusMode}
                 syncing={syncing} theme={theme} setTheme={setTheme} subPanel={subPanel} glassPanel={glassPanel}
@@ -306,13 +434,6 @@ const App: React.FC = () => {
                 handleExportCSV={handleExportCSV} setShowConfigModal={setShowConfigModal}
             />
             
-            {/* Host Status for Debug/Info */}
-            {isFocusMode && isOnline && isHost && (
-                <div className="absolute top-4 right-4 z-[60] opacity-30 text-[10px] font-mono">
-                    Viewers: {peerCount}
-                </div>
-            )}
-            
             {!isFocusMode && (
                 <div className="px-6 py-2 flex gap-3">
                     <button onClick={() => setActiveView('score')} className={`flex-1 py-3 px-4 rounded-2xl font-black text-[10px] tracking-widest flex items-center justify-center gap-2 transition-all duration-300 transform ${activeView === 'score' ? 'bg-fuchsia-600 text-white shadow-lg translate-y-0' : 'opacity-40 translate-y-1 hover:translate-y-0 hover:opacity-70'}`}><Icon name="trophy" size={16} /> SCORE</button>
@@ -320,7 +441,7 @@ const App: React.FC = () => {
                 </div>
             )}
             
-            <main className={`flex-1 flex flex-col overflow-hidden px-6 py-4 relative ${!isHost && isOnline ? 'pointer-events-none opacity-90' : ''}`}>
+            <main className={`flex-1 flex flex-col overflow-hidden px-6 py-4 relative`}>
                  {/* View Transitions */}
                 <div className={`absolute inset-0 px-6 py-4 transition-all duration-500 ease-in-out ${activeView === 'score' ? 'opacity-100 translate-x-0 z-10' : 'opacity-0 -translate-x-10 pointer-events-none'}`}>
                     <ScoreBoard 
@@ -338,6 +459,15 @@ const App: React.FC = () => {
                     />
                 </div>
             </main>
+
+            {/* Shot Clock Overlay - Always visible in Score view */}
+            {activeView === 'score' && (
+                <ShotClock 
+                    state={gameData.shotClock} 
+                    isHost={isHost} 
+                    onControl={handleShotClockControl} 
+                />
+            )}
         </div>
     );
 };

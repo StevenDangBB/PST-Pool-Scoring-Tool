@@ -1,15 +1,14 @@
+
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { DEFAULT_GAME_DATA } from '../constants';
 import { getSessionId } from '../utils';
-import type { GameData } from '../types';
+import type { GameData, P2PMessage, RemoteCommand, ReactionData } from '../types';
 
-// Prefix to ensure we don't collide with other random PeerJS users
 const PEER_PREFIX = 'pst-v3-room-';
 
 export const useGameSync = () => {
     const [sessionId, setSessionId] = useState(getSessionId());
     
-    // Determine data from LocalStorage first (Optimistic Load)
     const [gameData, setGameData] = useState<GameData>(() => {
         try {
             const saved = localStorage.getItem(`pst_session_${getSessionId()}`);
@@ -21,13 +20,25 @@ export const useGameSync = () => {
 
     const [isOnline, setIsOnline] = useState(false);
     const [isLoadingRoom, setIsLoadingRoom] = useState(true);
-    const [isHost, setIsHost] = useState(false); // New: Tracks if this user owns the room
+    const [isHost, setIsHost] = useState(false);
     const [peerCount, setPeerCount] = useState(0);
+    const [syncing, setSyncing] = useState(false);
+    const [permissionError, setPermissionError] = useState(false);
+    
+    // New states for interaction
+    const [lastReaction, setLastReaction] = useState<ReactionData | null>(null);
+    const [pendingCommand, setPendingCommand] = useState<RemoteCommand | null>(null);
 
     const peerRef = useRef<any>(null);
     const connectionsRef = useRef<any[]>([]);
     
-    // 1. Initialize P2P Connection
+    // Helper to broadcast message to all connected peers
+    const broadcast = useCallback((msg: P2PMessage) => {
+        connectionsRef.current.forEach(conn => {
+            if (conn.open) conn.send(msg);
+        });
+    }, []);
+
     useEffect(() => {
         const roomId = getSessionId();
         const peerId = `${PEER_PREFIX}${roomId}`;
@@ -35,92 +46,86 @@ export const useGameSync = () => {
         setIsLoadingRoom(true);
         setIsOnline(false);
         setIsHost(false);
+        setPermissionError(false);
         connectionsRef.current = [];
         setPeerCount(0);
 
         if (!window.Peer) {
-            console.error("PeerJS not loaded");
             setIsLoadingRoom(false);
+            setIsHost(true); // Default to Host if PeerJS is not loaded (Offline Mode)
             return;
         }
-
-        // --- STRATEGY: Try to be the HOST first ---
-        // If we can grab the ID PEER_PREFIX + roomId, we are the Host.
-        // If that ID is taken, PeerJS will error, and we fallback to being a Viewer.
 
         const initPeer = (attemptHost: boolean) => {
             if (peerRef.current) peerRef.current.destroy();
 
-            const myId = attemptHost ? peerId : undefined; // Undefined = random ID for viewer
+            const myId = attemptHost ? peerId : undefined;
             
             const peer = new window.Peer(myId, {
                 debug: 1,
-                config: {
-                    iceServers: [
-                        { urls: 'stun:stun.l.google.com:19302' },
-                        { urls: 'stun:global.stun.twilio.com:3478' }
-                    ]
-                }
+                config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
             });
 
             peer.on('open', (id: string) => {
-                console.log('Peer Opened. My ID:', id);
-                
                 if (id === peerId) {
-                    // WE ARE HOST
+                    // HOST LOGIC
                     setIsHost(true);
                     setIsOnline(true);
                     setIsLoadingRoom(false);
-                    // Load latest local data as authority
                     try {
                         const saved = localStorage.getItem(`pst_session_${roomId}`);
                         if (saved) setGameData(JSON.parse(saved));
                     } catch {}
                 } else {
-                    // WE ARE VIEWER
+                    // VIEWER LOGIC
                     setIsHost(false);
-                    // Connect to Host
                     const conn = peer.connect(peerId);
                     
                     conn.on('open', () => {
-                        console.log("Connected to Host!");
                         setIsOnline(true);
                         setIsLoadingRoom(false);
                     });
 
-                    conn.on('data', (data: GameData) => {
-                        // Received update from Host
-                        console.log("Received Data from Host");
-                        setGameData(data);
-                        localStorage.setItem(`pst_session_${roomId}`, JSON.stringify(data));
+                    conn.on('data', (msg: P2PMessage) => {
+                        if (msg.type === 'GAME_DATA') {
+                            setSyncing(true);
+                            setGameData(msg.payload);
+                            localStorage.setItem(`pst_session_${roomId}`, JSON.stringify(msg.payload));
+                            setTimeout(() => setSyncing(false), 500);
+                        } else if (msg.type === 'REACTION') {
+                            setLastReaction(msg.payload);
+                        }
                     });
 
-                    conn.on('close', () => {
-                        console.warn("Host disconnected");
-                        setIsOnline(false);
-                    });
-                    
+                    conn.on('close', () => setIsOnline(false));
                     connectionsRef.current = [conn];
                 }
             });
 
             peer.on('connection', (conn: any) => {
-                // (HOST ONLY) A viewer connected
-                console.log("New Viewer Connected");
+                // HOST ONLY: Handle incoming connections
                 connectionsRef.current.push(conn);
                 setPeerCount(prev => prev + 1);
 
-                // Send current data immediately
-                // Need to use current state, but inside callback usage is tricky.
-                // We trust the localStorage or the Ref if we had one, but simple approach:
-                // We queue a send or just wait for next update. 
-                // Better: Send immediately what we have in the state variable (via closure might be stale, but okay for init)
-                // To fix stale closure, we can just save to LS and read from LS to send, or just wait for next interaction.
-                // Let's try to send what's in LocalStorage to be safe.
+                // Send initial data
                 const currentLocal = localStorage.getItem(`pst_session_${roomId}`);
                 if (currentLocal) {
-                    conn.send(JSON.parse(currentLocal));
+                    const msg: P2PMessage = { type: 'GAME_DATA', payload: JSON.parse(currentLocal) };
+                    conn.send(msg);
                 }
+
+                // Listen for messages FROM Viewers (Commands/Reactions)
+                conn.on('data', (msg: P2PMessage) => {
+                    if (msg.type === 'REACTION') {
+                        // Display on Host
+                        setLastReaction(msg.payload);
+                        // Forward to other viewers (Broadcasting)
+                        broadcast(msg); 
+                    } else if (msg.type === 'COMMAND') {
+                        // Queue command for App.tsx to execute
+                        setPendingCommand(msg.payload);
+                    }
+                });
 
                 conn.on('close', () => {
                     connectionsRef.current = connectionsRef.current.filter(c => c !== conn);
@@ -129,61 +134,80 @@ export const useGameSync = () => {
             });
 
             peer.on('error', (err: any) => {
-                console.log("Peer Error:", err.type);
                 if (err.type === 'unavailable-id') {
-                    // ID taken, meaning Host exists. Become Viewer.
-                    console.log("Room ID taken, switching to Viewer mode...");
-                    initPeer(false); // Retry as viewer (random ID)
+                    initPeer(false); // ID taken, become Viewer
                 } else {
-                    console.error(err);
+                    if (err.type === 'browser-incompatible' || err.type === 'ssl-unavailable') {
+                        setPermissionError(true);
+                    }
                     setIsOnline(false);
                     setIsLoadingRoom(false);
+                    setIsHost(true); // Fallback to Host on error (Offline Mode)
                 }
             });
 
             peerRef.current = peer;
         };
 
-        // Start by attempting to be Host
         initPeer(true);
 
-        const handleHashChange = () => {
-            setSessionId(getSessionId());
-            // Trigger re-render to re-run effect
-        };
+        const handleHashChange = () => setSessionId(getSessionId());
         window.addEventListener('hashchange', handleHashChange);
 
         return () => {
             window.removeEventListener('hashchange', handleHashChange);
             if (peerRef.current) peerRef.current.destroy();
         };
-    }, [sessionId]);
+    }, [sessionId, broadcast]);
 
+    // Function for Host to update game state
     const handleUpdate = useCallback((newData: GameData) => {
-        // Optimistic Update
         setGameData(newData);
         localStorage.setItem(`pst_session_${sessionId}`, JSON.stringify(newData));
-
-        // If Host, broadcast to all viewers
-        if (isHost && isOnline && connectionsRef.current.length > 0) {
-            connectionsRef.current.forEach(conn => {
-                if (conn.open) {
-                    conn.send(newData);
-                }
-            });
+        if (isHost && isOnline) {
+            setSyncing(true);
+            broadcast({ type: 'GAME_DATA', payload: newData });
+            setTimeout(() => setSyncing(false), 500);
         }
-    }, [sessionId, isHost, isOnline]);
+    }, [sessionId, isHost, isOnline, broadcast]);
+
+    // Function to send reaction (Host or Viewer)
+    const sendReaction = useCallback((emoji: string) => {
+        const payload: ReactionData = { emoji, id: Date.now() };
+        setLastReaction(payload); // Show locally immediately
+        
+        const msg: P2PMessage = { type: 'REACTION', payload };
+        if (isHost) {
+            broadcast(msg);
+        } else if (isOnline && connectionsRef.current[0]) {
+            connectionsRef.current[0].send(msg);
+        }
+    }, [isHost, isOnline, broadcast]);
+
+    // Function for Viewer to send command
+    const sendCommand = useCallback((cmd: RemoteCommand) => {
+        if (!isOnline || isHost) return;
+        const msg: P2PMessage = { type: 'COMMAND', payload: cmd };
+        if (connectionsRef.current[0]) {
+            connectionsRef.current[0].send(msg);
+        }
+    }, [isOnline, isHost]);
 
     return {
-        user: { uid: isHost ? 'HOST' : 'VIEWER' }, // Mock user for UI compatibility
         sessionId,
         gameData,
         isOnline,
         isLoadingRoom,
-        syncing: false, // P2P is instant, no sync loading state usually needed
-        permissionError: false,
+        isHost,
+        peerCount,
         handleUpdate,
-        isHost,    // Exported so UI can disable controls for Viewers
-        peerCount  // Exported so Host knows how many are watching
+        syncing,
+        permissionError,
+        lastReaction,
+        sendReaction,
+        pendingCommand,
+        setPendingCommand, // To clear command after handling
+        sendCommand
     };
 };
+        

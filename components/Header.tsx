@@ -59,8 +59,9 @@ const Header: React.FC<HeaderProps> = ({
                             <button onClick={() => window.location.hash = generateRoomId()} className={`p-2.5 rounded-2xl ${subPanel} text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 transition-colors`} title="Reset Current Room"><Icon name="plusSquare" size={18} /></button>
                         </>
                     )}
+                    <button onClick={shareRoom} className={`p-2.5 rounded-2xl ${subPanel} hover:scale-105 transition-transform`} title="QR Code Share"><Icon name="qr" size={18} /></button>
                     <button onClick={() => setIsHistoryModalOpen(true)} className={`p-2.5 rounded-2xl ${subPanel} hover:scale-105 transition-transform`} title="History"><Icon name="history" size={18} /></button>
-                    <button onClick={shareRoom} className={`p-2.5 rounded-2xl ${subPanel} hover:scale-105 transition-transform`} title="Share Room"><Icon name="share" size={18} /></button>
+                    
                     {lastSessionBackup && <button onClick={recallData} className="p-2.5 rounded-2xl bg-cyan-500/10 text-cyan-500 border border-cyan-500/20 animate-pulse" title="Undo Reset"><Icon name="undo" size={18} /></button>}
                     <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} className={`p-2.5 rounded-2xl ${subPanel} hover:rotate-12 transition-transform`}><Icon name={theme === 'light' ? 'moon' : 'sun'} size={18} /></button>
                     <button onClick={handleExportCSV} className={`p-2.5 rounded-2xl ${subPanel} text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors`} title="Export CSV"><Icon name="download" size={18} /></button>

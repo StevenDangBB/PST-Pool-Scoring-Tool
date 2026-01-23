@@ -20,6 +20,13 @@ export type SplitMode = '73' | 'equal';
 export type HistoryFilter = 'all' | 'score' | 'balance' | 'system' | 'info';
 export type Theme = 'light' | 'dark';
 
+export interface ShotClockState {
+    seconds: number;
+    initialSeconds: number; // 30 or 60
+    isRunning: boolean;
+    extensions: { [playerId: number]: number }; // Count extensions used
+}
+
 export interface GameData {
   gameMode: GameMode;
   raceTo: number;
@@ -29,6 +36,7 @@ export interface GameData {
   history: HistoryEntry[];
   players1vs1: Player[];
   playersDen: Player[];
+  shotClock: ShotClockState;
 }
 
 export interface PlayerColor {
@@ -45,10 +53,31 @@ export interface BillingData extends Player {
     total: number;
 }
 
-// Extend the Window interface for global objects from CDNs
+// P2P Protocol Types
+export type P2PMessageType = 'GAME_DATA' | 'REACTION' | 'COMMAND';
+
+export interface P2PMessage {
+    type: P2PMessageType;
+    payload: any;
+}
+
+export interface RemoteCommand {
+    action: 'SCORE' | 'CLOCK';
+    mode?: '1vs1' | 'den';
+    id?: number;
+    delta?: number;
+    clockAction?: 'START' | 'STOP' | 'RESET' | 'EXT' | 'SET_TIME';
+    clockValue?: number;
+}
+
+export interface ReactionData {
+    emoji: string;
+    id: number;
+    senderId?: string;
+}
+
 declare global {
   interface Window {
-    // PeerJS is injected via CDN
     Peer: any;
     confetti: (options: any) => void;
     __app_id?: string;

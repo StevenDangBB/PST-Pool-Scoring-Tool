@@ -52,8 +52,8 @@ const ScoreBoard: React.FC<ScoreBoardProps> = ({
     }
 
     return (
-        <div className="h-full flex flex-col space-y-4 text-center animate-fadeIn">
-            <div className={`p-4 rounded-[2rem] flex flex-col items-center justify-center ${glassPanel} glass-effect border ${isFocusMode && gameData.gameMode !== 'den' ? 'border-none bg-transparent shadow-none' : ''}`}>
+        <div className="h-full flex flex-col space-y-2 text-center animate-fadeIn pb-20">
+            <div className={`p-2 rounded-[2rem] flex flex-col items-center justify-center ${glassPanel} glass-effect border ${isFocusMode && gameData.gameMode !== 'den' ? 'border-none bg-transparent shadow-none' : ''}`}>
                 {!isFocusMode && (
                     <div className={`flex p-1 rounded-2xl w-full max-w-[200px] ${subPanel}`}>
                         <button onClick={() => handleUpdate({...gameData, gameMode: '1vs1'})} className={`flex-1 py-2 rounded-xl flex justify-center transition-all duration-300 ${gameData.gameMode === '1vs1' ? 'bg-fuchsia-600 text-white shadow-lg' : 'opacity-40 hover:opacity-100'}`}><Icon name="user" size={18} /></button>
@@ -62,22 +62,22 @@ const ScoreBoard: React.FC<ScoreBoardProps> = ({
                 )}
                 {gameData.gameMode === '1vs1' ? (
                     isFocusMode ? (
-                        <div className="flex flex-col items-center py-4 relative">
-                            <span className={`text-[12rem] md:text-[15rem] leading-[0.8] absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 font-black italic tracking-tighter uppercase whitespace-nowrap pointer-events-none text-scanlines z-0 ${isHillHill ? 'text-red-500/30' : (theme === 'dark' ? 'text-white/20' : 'text-slate-300')}`} style={{fontSize: '20vw'}}>{raceToText}</span>
-                            <span className={`text-[12rem] leading-[0.85] font-black text-white drop-shadow-2xl transition-all duration-300 z-10 ${raceToClass}`} style={raceToStyle}>{gameData.raceTo}</span>
+                        <div className="flex flex-col items-center py-2 relative">
+                            <span className={`text-[8rem] md:text-[12rem] leading-[0.8] absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 font-black italic tracking-tighter uppercase whitespace-nowrap pointer-events-none text-scanlines z-0 ${isHillHill ? 'text-red-500/30' : (theme === 'dark' ? 'text-white/20' : 'text-slate-300')}`} style={{fontSize: '15vw'}}>{raceToText}</span>
+                            <span className={`text-[6rem] md:text-[8rem] leading-[0.85] font-black text-white drop-shadow-2xl transition-all duration-300 z-10 ${raceToClass}`} style={raceToStyle}>{gameData.raceTo}</span>
                         </div>
                     ) : (
-                        <div className="flex flex-col items-center gap-1 mt-3">
+                        <div className="flex flex-col items-center gap-1 mt-2">
                             <span className="text-[10px] font-black uppercase opacity-40">Race To</span>
                             <div className="flex items-center gap-10">
                                 <button onClick={() => handleUpdate({...gameData, raceTo: Math.max(1, gameData.raceTo - 1)})} className={`w-10 h-10 rounded-xl flex items-center justify-center ${subPanel} hover:bg-slate-100 dark:hover:bg-white/10`}><Icon name="minus" size={18} /></button>
-                                <span className="text-6xl font-black text-slate-800 dark:text-white drop-shadow-md race-effect-normal">{gameData.raceTo}</span>
+                                <span className="text-4xl md:text-6xl font-black text-slate-800 dark:text-white drop-shadow-md race-effect-normal">{gameData.raceTo}</span>
                                 <button onClick={() => handleUpdate({...gameData, raceTo: gameData.raceTo + 1})} className={`w-10 h-10 rounded-xl flex items-center justify-center ${subPanel} hover:bg-slate-100 dark:hover:bg-white/10`}><Icon name="plus" size={18} /></button>
                             </div>
                         </div>
                     )
                 ) : (
-                    <div className="flex items-center gap-4 w-full justify-between px-2 mt-3">
+                    <div className="flex items-center gap-4 w-full justify-between px-2 mt-2">
                         <div className="flex items-center gap-2">
                             <div className={`w-2 h-2 rounded-full transition-colors duration-500 ${ (gameData.playersDen.reduce((acc, p) => acc + p.score, 0)) === 0 ? 'bg-green-500' : 'bg-red-500'}`}></div>
                             <span className={`text-xs font-black uppercase transition-colors duration-500 ${ (gameData.playersDen.reduce((acc, p) => acc + p.score, 0)) === 0 ? 'text-green-500' : 'text-red-500'}`}>{ (gameData.playersDen.reduce((acc, p) => acc + p.score, 0)) === 0 ? 'BALANCED' : `DIFF: ${gameData.playersDen.reduce((acc, p) => acc + p.score, 0)}`}</span>
@@ -91,39 +91,41 @@ const ScoreBoard: React.FC<ScoreBoardProps> = ({
             </div>
             
             {/* Player Cards Area */}
-            <div className={`flex-1 gap-4 pb-4 pr-1 ${gameData.gameMode === '1vs1' ? 'grid grid-cols-2 overflow-visible p-4' : 'flex flex-col overflow-y-auto'}`}>
-                {gameData.gameMode === '1vs1' ? (
-                    gameData.players1vs1.map((p, idx) => (
-                        <OneVsOneCard 
-                            key={p.id} 
-                            player={p} 
-                            color={playerColors[p.colorIdx]} 
-                            gameData={gameData} 
-                            updateScore={updateScore} 
-                            editName={editName} 
-                            winner={winner} 
-                            isFocusMode={isFocusMode} 
-                            isFever={streak.playerId === p.id && streak.count >= 3} 
-                        />
-                    ))
-                ) : (
-                    gameData.playersDen.map((p, idx) => (
-                        <TeamPlayerCard 
-                            key={p.id} 
-                            player={p} 
-                            index={idx} 
-                            gameData={gameData} 
-                            updateScore={updateScore} 
-                            editName={editName} 
-                            autoBalance={autoBalance} 
-                            removePlayerDen={removePlayerDen} 
-                            color={playerColors[p.colorIdx]} 
-                            isManageMode={isManageMode} 
-                            movePlayer={movePlayer} 
-                            isFever={streak.playerId === p.id && streak.count >= 3} 
-                        />
-                    ))
-                )}
+            <div className={`flex-1 flex flex-col justify-center gap-2 pb-0 pr-1 min-h-0 ${gameData.gameMode === '1vs1' ? 'overflow-visible px-2' : 'overflow-y-auto'}`}>
+                <div className={`${gameData.gameMode === '1vs1' ? 'grid grid-cols-2 gap-4 h-full' : 'flex flex-col gap-2'}`}>
+                    {gameData.gameMode === '1vs1' ? (
+                        gameData.players1vs1.map((p, idx) => (
+                            <OneVsOneCard 
+                                key={p.id} 
+                                player={p} 
+                                color={playerColors[p.colorIdx]} 
+                                gameData={gameData} 
+                                updateScore={updateScore} 
+                                editName={editName} 
+                                winner={winner} 
+                                isFocusMode={isFocusMode} 
+                                isFever={streak.playerId === p.id && streak.count >= 3} 
+                            />
+                        ))
+                    ) : (
+                        gameData.playersDen.map((p, idx) => (
+                            <TeamPlayerCard 
+                                key={p.id} 
+                                player={p} 
+                                index={idx} 
+                                gameData={gameData} 
+                                updateScore={updateScore} 
+                                editName={editName} 
+                                autoBalance={autoBalance} 
+                                removePlayerDen={removePlayerDen} 
+                                color={playerColors[p.colorIdx]} 
+                                isManageMode={isManageMode} 
+                                movePlayer={movePlayer} 
+                                isFever={streak.playerId === p.id && streak.count >= 3} 
+                            />
+                        ))
+                    )}
+                </div>
             </div>
         </div>
     );

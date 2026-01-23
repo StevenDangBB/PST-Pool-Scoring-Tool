@@ -14,6 +14,14 @@ export const getPlayerColors = (theme: Theme): PlayerColor[] => [
 
 export const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'pst-tool-v2';
 
+export const SFX = {
+    CLICK: 'https://cdn.freesound.org/previews/256/256116_4486188-lq.mp3', // Billiard Ball Clack
+    WIN: 'https://cdn.freesound.org/previews/270/270404_5123851-lq.mp3', // Applause
+    BUZZER: 'https://cdn.freesound.org/previews/536/536108_11530279-lq.mp3', // Time over
+    TICK: 'https://cdn.freesound.org/previews/254/254316_4062622-lq.mp3', // Heartbeat/Tick
+    EXT: 'https://cdn.freesound.org/previews/320/320655_5260872-lq.mp3' // Electronic beep
+};
+
 export const DEFAULT_GAME_DATA: GameData = {
     gameMode: '1vs1',
     raceTo: 7,
@@ -29,5 +37,11 @@ export const DEFAULT_GAME_DATA: GameData = {
         { id: 1, name: 'PLAYER A', score: 0, personal: 0, colorIdx: 0 },
         { id: 2, name: 'PLAYER B', score: 0, personal: 0, colorIdx: 1 },
         { id: 3, name: 'PLAYER C', score: 0, personal: 0, colorIdx: 2 },
-    ]
+    ],
+    shotClock: {
+        seconds: 30,
+        initialSeconds: 30,
+        isRunning: false,
+        extensions: {}
+    }
 };

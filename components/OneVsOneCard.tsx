@@ -21,38 +21,42 @@ const OneVsOneCard: React.FC<OneVsOneCardProps> = ({ player, color, gameData, up
     const isWinner = winner === player.name;
     const isLoser = winner && winner !== player.name;
 
+    // Leader effect class
+    const leaderClass = (!isWinner && !isFever && isLeader) 
+        ? 'ring-4 ring-amber-400 shadow-[0_0_40px_rgba(251,191,36,0.5)] z-20' 
+        : '';
+
     return (
         <div className={`relative flex flex-col h-full justify-center transition-all duration-500 ${isWinner ? 'z-30' : (isLoser ? 'loser-dimmed' : '')}`}>
-            {isWinner && <div className="absolute inset-0 rounded-[2.5rem] winner-grand-card pointer-events-none"></div>}
-            {!isWinner && !isFever && isLeader && <div className="absolute inset-0 rounded-[2.5rem] border-4 border-amber-400 shadow-[0_0_30px_rgba(251,191,36,0.4)] pointer-events-none"></div>}
+            {isWinner && <div className="absolute inset-0 rounded-[2rem] winner-grand-card pointer-events-none"></div>}
             
             {isWinner && (
                 <div className="grand-crown-container">
                     <div className="crown-halo"></div>
-                    <div className="text-amber-400 drop-shadow-[0_5px_5px_rgba(0,0,0,0.5)]"><Icon name="crown" size={80} fill="currentColor" /></div>
+                    <div className="text-amber-400 drop-shadow-[0_5px_5px_rgba(0,0,0,0.5)]"><Icon name="crown" size={60} fill="currentColor" /></div>
                     <div className="winner-badge">WINNER</div>
                 </div>
             )}
             
-            <div className={`relative flex-1 flex flex-col p-4 rounded-[2.5rem] overflow-hidden ${color.card} ${isWinner ? 'bg-black/80' : 'border'} ${isFever ? 'card-fever' : ''}`}>
+            <div className={`relative flex-1 flex flex-col p-2 rounded-[2rem] overflow-hidden transition-all duration-300 ${color.card} ${isWinner ? 'bg-black/80' : 'border'} ${isFever ? 'card-fever' : ''} ${leaderClass}`}>
                 <PlayerWatermark name={player.name} colorClass={color.watermark} />
                 <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${color.bar}`}></div>
-                <div className="flex flex-col h-full items-center py-2 w-full z-10">
+                <div className="flex flex-col h-full items-center py-1 w-full z-10">
                     <input 
                         type="text" 
                         value={player.name} 
                         onChange={(e) => editName('1vs1', player.id, e.target.value)} 
-                        className={`text-center bg-transparent text-xl font-black uppercase tracking-tighter focus:outline-none w-full px-2 mb-2 truncate relative z-20 ${isWinner ? 'text-amber-400 drop-shadow-md' : 'opacity-80 focus:opacity-100'}`} 
+                        className={`text-center bg-transparent text-lg md:text-xl font-black uppercase tracking-tighter focus:outline-none w-full px-2 mb-1 truncate relative z-20 ${isWinner ? 'text-amber-400 drop-shadow-md' : 'opacity-80 focus:opacity-100'}`} 
                     />
-                    <div className="flex-1 w-full flex flex-col items-center justify-center gap-2">
-                        <button onClick={() => updateScore('1vs1', player.id, 1)} className={`w-full flex-1 min-h-[60px] rounded-2xl flex items-center justify-center bg-transparent text-slate-500 ${color.btn} active:scale-95 transition-all ${isFocusMode ? 'opacity-30 hover:opacity-100' : ''}`}>
-                            <Icon name="chevronUp" size={40} />
+                    <div className="flex-1 w-full flex flex-col items-center justify-center gap-1">
+                        <button onClick={() => updateScore('1vs1', player.id, 1)} className={`w-full flex-1 rounded-xl flex items-center justify-center bg-transparent text-slate-500 ${color.btn} active:scale-95 transition-all ${isFocusMode ? 'opacity-30 hover:opacity-100' : ''}`}>
+                            <Icon name="chevronUp" size={32} />
                         </button>
-                        <span className={`font-black tabular-nums tracking-tighter text-center py-2 text-7xl sm:text-8xl ${isWinner ? 'text-transparent bg-clip-text bg-gradient-to-b from-amber-300 to-amber-600 drop-shadow-lg' : color.text}`}>
+                        <span className={`font-black tabular-nums tracking-tighter text-center py-1 text-6xl md:text-8xl ${isWinner ? 'text-transparent bg-clip-text bg-gradient-to-b from-amber-300 to-amber-600 drop-shadow-lg' : color.text}`}>
                             {player.score}
                         </span>
-                        <button onClick={() => updateScore('1vs1', player.id, -1)} className={`w-full flex-1 min-h-[60px] rounded-2xl flex items-center justify-center bg-transparent text-slate-500 ${color.btn} active:scale-95 transition-all ${isFocusMode ? 'opacity-30 hover:opacity-100' : ''}`}>
-                            <Icon name="chevronDown" size={40} />
+                        <button onClick={() => updateScore('1vs1', player.id, -1)} className={`w-full flex-1 rounded-xl flex items-center justify-center bg-transparent text-slate-500 ${color.btn} active:scale-95 transition-all ${isFocusMode ? 'opacity-30 hover:opacity-100' : ''}`}>
+                            <Icon name="chevronDown" size={32} />
                         </button>
                     </div>
                 </div>
