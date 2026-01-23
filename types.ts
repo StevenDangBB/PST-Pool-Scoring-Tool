@@ -33,6 +33,7 @@ export interface GameData {
   unitPrice: number;
   tableBill: number;
   splitMode: SplitMode;
+  breakPlayerId: number | null; // ID of player who has the break
   history: HistoryEntry[];
   players1vs1: Player[];
   playersDen: Player[];
@@ -62,7 +63,7 @@ export interface P2PMessage {
 }
 
 export interface RemoteCommand {
-    action: 'SCORE' | 'CLOCK';
+    action: 'SCORE' | 'CLOCK' | 'BREAK';
     mode?: '1vs1' | 'den';
     id?: number;
     delta?: number;

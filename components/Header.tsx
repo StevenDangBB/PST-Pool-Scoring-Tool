@@ -22,12 +22,15 @@ interface HeaderProps {
     recallData: () => void;
     handleExportCSV: () => void;
     setShowConfigModal: (val: boolean) => void;
+    isLocked: boolean;
+    setIsLocked: (val: boolean) => void;
 }
 
 const Header: React.FC<HeaderProps> = ({
     sessionId, isOnline, isFocusMode, setIsFocusMode, syncing, theme, setTheme,
     subPanel, glassPanel, gameData, lastSessionBackup, shareRoom,
-    setIsHistoryModalOpen, resetAllData, recallData, handleExportCSV, setShowConfigModal
+    setIsHistoryModalOpen, resetAllData, recallData, handleExportCSV, setShowConfigModal,
+    isLocked, setIsLocked
 }) => {
     
     // Function to open a new room in a new tab for parallel management
@@ -37,8 +40,8 @@ const Header: React.FC<HeaderProps> = ({
     };
 
     return (
-        <header className={`px-6 py-4 flex justify-between items-center ${glassPanel} glass-effect border-b z-50 transition-all ${isFocusMode ? 'border-none bg-transparent shadow-none' : ''}`}>
-            <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setIsFocusMode(!isFocusMode)}>
+        <header className={`px-4 sm:px-6 py-4 flex justify-between items-center ${glassPanel} glass-effect border-b z-50 transition-all ${isFocusMode ? 'border-none bg-transparent shadow-none' : ''}`}>
+            <div className="flex items-center gap-3 cursor-pointer group flex-shrink-0 mr-2" onClick={() => setIsFocusMode(!isFocusMode)}>
                 <div className="bg-fuchsia-600 w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg rotate-3 relative group-hover:rotate-6 transition-transform">
                     <Icon name="target" className="text-white" />
                     {syncing && <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-cyan-400 rounded-full animate-ping"></div>}
@@ -50,24 +53,35 @@ const Header: React.FC<HeaderProps> = ({
                     </span>
                 </div>
             </div>
-            {!isFocusMode && (
-                <div className="flex gap-2">
-                    {!isOnline && <button onClick={() => setShowConfigModal(true)} className={`p-2.5 rounded-2xl ${subPanel} text-red-500 animate-pulse`} title="Setup Sync"><Icon name="cloudOff" size={18} /></button>}
-                    {isOnline && (
-                        <>
-                            <button onClick={openParallelRoom} className={`p-2.5 rounded-2xl ${subPanel} text-fuchsia-600 hover:bg-fuchsia-50 dark:hover:bg-fuchsia-900/20 transition-colors`} title="Open Parallel Room (New Tab)"><Icon name="plus" size={18} /></button>
-                            <button onClick={() => window.location.hash = generateRoomId()} className={`p-2.5 rounded-2xl ${subPanel} text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 transition-colors`} title="Reset Current Room"><Icon name="plusSquare" size={18} /></button>
-                        </>
-                    )}
-                    <button onClick={shareRoom} className={`p-2.5 rounded-2xl ${subPanel} hover:scale-105 transition-transform`} title="QR Code Share"><Icon name="qr" size={18} /></button>
-                    <button onClick={() => setIsHistoryModalOpen(true)} className={`p-2.5 rounded-2xl ${subPanel} hover:scale-105 transition-transform`} title="History"><Icon name="history" size={18} /></button>
-                    
-                    {lastSessionBackup && <button onClick={recallData} className="p-2.5 rounded-2xl bg-cyan-500/10 text-cyan-500 border border-cyan-500/20 animate-pulse" title="Undo Reset"><Icon name="undo" size={18} /></button>}
-                    <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} className={`p-2.5 rounded-2xl ${subPanel} hover:rotate-12 transition-transform`}><Icon name={theme === 'light' ? 'moon' : 'sun'} size={18} /></button>
-                    <button onClick={handleExportCSV} className={`p-2.5 rounded-2xl ${subPanel} text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors`} title="Export CSV"><Icon name="download" size={18} /></button>
-                    <button onClick={resetAllData} className={`p-2.5 rounded-2xl ${subPanel} text-fuchsia-500 hover:rotate-180 transition-transform duration-500`}><Icon name="refresh" size={18} /></button>
-                </div>
-            )}
+            
+            {/* Action Group with Scrollable Container for Mobile */}
+            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar max-w-[calc(100vw-80px)] sm:max-w-none pl-1 py-1">
+                 <button 
+                    onClick={() => setIsLocked(!isLocked)} 
+                    className={`flex-shrink-0 p-2.5 rounded-2xl transition-all shadow-lg ${isLocked ? 'bg-red-500 text-white animate-pulse' : `${subPanel} text-slate-400`}`}
+                >
+                    <Icon name={isLocked ? "lock" : "unlock"} size={18} />
+                </button>
+
+                {!isFocusMode && (
+                    <>
+                        {!isOnline && <button onClick={() => setShowConfigModal(true)} className={`flex-shrink-0 p-2.5 rounded-2xl ${subPanel} text-red-500 animate-pulse`} title="Setup Sync"><Icon name="cloudOff" size={18} /></button>}
+                        {isOnline && (
+                            <>
+                                <button onClick={openParallelRoom} className={`flex-shrink-0 p-2.5 rounded-2xl ${subPanel} text-fuchsia-600 hover:bg-fuchsia-50 dark:hover:bg-fuchsia-900/20 transition-colors`} title="Open Parallel Room (New Tab)"><Icon name="plus" size={18} /></button>
+                                <button onClick={() => window.location.hash = generateRoomId()} className={`flex-shrink-0 p-2.5 rounded-2xl ${subPanel} text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 transition-colors`} title="Reset Current Room"><Icon name="plusSquare" size={18} /></button>
+                            </>
+                        )}
+                        <button onClick={shareRoom} className={`flex-shrink-0 p-2.5 rounded-2xl ${subPanel} hover:scale-105 transition-transform`} title="QR Code Share"><Icon name="qr" size={18} /></button>
+                        <button onClick={() => setIsHistoryModalOpen(true)} className={`flex-shrink-0 p-2.5 rounded-2xl ${subPanel} hover:scale-105 transition-transform`} title="History"><Icon name="history" size={18} /></button>
+                        
+                        {lastSessionBackup && <button onClick={recallData} className="flex-shrink-0 p-2.5 rounded-2xl bg-cyan-500/10 text-cyan-500 border border-cyan-500/20 animate-pulse" title="Undo Reset"><Icon name="undo" size={18} /></button>}
+                        <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} className={`flex-shrink-0 p-2.5 rounded-2xl ${subPanel} hover:rotate-12 transition-transform`}><Icon name={theme === 'light' ? 'moon' : 'sun'} size={18} /></button>
+                        <button onClick={handleExportCSV} className={`flex-shrink-0 p-2.5 rounded-2xl ${subPanel} text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors`} title="Export CSV"><Icon name="download" size={18} /></button>
+                        <button onClick={resetAllData} className={`flex-shrink-0 p-2.5 rounded-2xl ${subPanel} text-fuchsia-500 hover:rotate-180 transition-transform duration-500`}><Icon name="refresh" size={18} /></button>
+                    </>
+                )}
+            </div>
         </header>
     );
 };

@@ -81,7 +81,17 @@ export const useGameSync = () => {
                     setIsHost(false);
                     const conn = peer.connect(peerId);
                     
+                    // Timeout to detect Ghost Host
+                    const ghostTimeout = setTimeout(() => {
+                        if (!conn.open && !isOnline) {
+                            console.warn("Ghost Host detected (Timeout). Consider refreshing URL with new hash.");
+                            // We can't force host easily without changing ID, but we can stop loading
+                            setIsLoadingRoom(false);
+                        }
+                    }, 5000);
+
                     conn.on('open', () => {
+                        clearTimeout(ghostTimeout);
                         setIsOnline(true);
                         setIsLoadingRoom(false);
                     });
@@ -140,9 +150,10 @@ export const useGameSync = () => {
                     if (err.type === 'browser-incompatible' || err.type === 'ssl-unavailable') {
                         setPermissionError(true);
                     }
+                    // Fallback to offline Host for other errors
                     setIsOnline(false);
                     setIsLoadingRoom(false);
-                    setIsHost(true); // Fallback to Host on error (Offline Mode)
+                    setIsHost(true); 
                 }
             });
 
@@ -152,10 +163,14 @@ export const useGameSync = () => {
         initPeer(true);
 
         const handleHashChange = () => setSessionId(getSessionId());
+        const handleUnload = () => { if (peerRef.current) peerRef.current.destroy(); };
+        
         window.addEventListener('hashchange', handleHashChange);
+        window.addEventListener('beforeunload', handleUnload);
 
         return () => {
             window.removeEventListener('hashchange', handleHashChange);
+            window.removeEventListener('beforeunload', handleUnload);
             if (peerRef.current) peerRef.current.destroy();
         };
     }, [sessionId, broadcast]);
@@ -179,7 +194,7 @@ export const useGameSync = () => {
         const msg: P2PMessage = { type: 'REACTION', payload };
         if (isHost) {
             broadcast(msg);
-        } else if (isOnline && connectionsRef.current[0]) {
+        } else if (isOnline && connectionsRef.current[0] && connectionsRef.current[0].open) {
             connectionsRef.current[0].send(msg);
         }
     }, [isHost, isOnline, broadcast]);
@@ -188,7 +203,7 @@ export const useGameSync = () => {
     const sendCommand = useCallback((cmd: RemoteCommand) => {
         if (!isOnline || isHost) return;
         const msg: P2PMessage = { type: 'COMMAND', payload: cmd };
-        if (connectionsRef.current[0]) {
+        if (connectionsRef.current[0] && connectionsRef.current[0].open) {
             connectionsRef.current[0].send(msg);
         }
     }, [isOnline, isHost]);
@@ -210,4 +225,3 @@ export const useGameSync = () => {
         sendCommand
     };
 };
-        

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { getPlayerColors } from './constants';
 import { calculateBillingData } from './utils';
@@ -25,6 +26,7 @@ const App: React.FC = () => {
     const [isFocusMode, setIsFocusMode] = useState(true);
     const [isManageMode, setIsManageMode] = useState(false);
     const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+    const [isLocked, setIsLocked] = useState(false); // New Lock State
 
     // --- Hooks & Logic ---
     const { playSound } = useAudio();
@@ -40,14 +42,15 @@ const App: React.FC = () => {
 
     // Game Business Logic Hook
     const {
-        winner, setWinner, streak, setStreak, updateScore, editName, 
+        winner, setWinner, streak, setStreak, updateScore, toggleBreak, editName, 
         addPlayerDen, removePlayerDen, autoBalance, movePlayer, resetGame
     } = useGameLogic({ 
         gameData, isHost, handleUpdate, sendCommand, playSound, playerColors 
     });
 
     // --- Derived Styles ---
-    const themeClasses = theme === 'dark' ? 'bg-[#0a0510] text-slate-100' : 'bg-slate-50 text-slate-900';
+    // Background handling moved to index.html (bg-aurora class)
+    const themeClasses = theme === 'dark' ? 'text-slate-100' : 'bg-slate-50 text-slate-900';
     const glassPanel = theme === 'dark' ? 'bg-white/[0.03] border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.6)]' : 'bg-white/70 border-slate-200 shadow-[0_8px_32px_rgba(0,0,0,0.05)]';
     const subPanel = theme === 'dark' ? 'bg-black/40 border-white/5' : 'bg-white border border-slate-200';
 
@@ -262,6 +265,7 @@ const App: React.FC = () => {
                 gameData={gameData} lastSessionBackup={lastSessionBackup} shareRoom={() => setShowQRModal(true)}
                 setIsHistoryModalOpen={setIsHistoryModalOpen} resetAllData={handleResetAll} recallData={handleRecall}
                 handleExportCSV={handleExportCSV} setShowConfigModal={setShowConfigModal}
+                isLocked={isLocked} setIsLocked={setIsLocked}
             />
             
             {!isFocusMode && (
@@ -274,9 +278,10 @@ const App: React.FC = () => {
             <main className={`flex-1 flex flex-col overflow-hidden px-6 py-4 relative`}>
                 <div className={`absolute inset-0 px-6 py-4 transition-all duration-500 ease-in-out ${activeView === 'score' ? 'opacity-100 translate-x-0 z-10' : 'opacity-0 -translate-x-10 pointer-events-none'}`}>
                     <ScoreBoard 
-                        gameData={gameData} handleUpdate={handleUpdate} updateScore={updateScore} editName={editName}
+                        gameData={gameData} handleUpdate={handleUpdate} updateScore={updateScore} editName={editName} toggleBreak={toggleBreak}
                         addPlayerDen={addPlayerDen} removePlayerDen={removePlayerDen} autoBalance={autoBalance} movePlayer={movePlayer}
-                        winner={winner} isFocusMode={isFocusMode} isManageMode={isManageMode} setIsManageMode={setIsManageMode}
+                        resetGame={resetGame}
+                        winner={winner} isFocusMode={isFocusMode} isManageMode={isManageMode} setIsManageMode={setIsManageMode} isLocked={isLocked}
                         streak={streak} theme={theme} playerColors={playerColors} glassPanel={glassPanel} subPanel={subPanel}
                     />
                 </div>

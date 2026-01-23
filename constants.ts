@@ -28,6 +28,7 @@ export const DEFAULT_GAME_DATA: GameData = {
     unitPrice: 10000,
     tableBill: 0,
     splitMode: '73',
+    breakPlayerId: 1, // Default break to P1
     history: [],
     players1vs1: [
         { id: 1, name: 'PLAYER 01', score: 0, personal: 0, colorIdx: 0 },

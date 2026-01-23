@@ -1,5 +1,5 @@
 
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import type { GameData, HistoryEntry, HistoryFilter, Player, PlayerColor } from '../types';
 import { getCurrentTime } from '../utils';
 import { DEFAULT_GAME_DATA } from '../constants';
@@ -18,6 +18,31 @@ export const useGameLogic = ({
 }: UseGameLogicProps) => {
     const [winner, setWinner] = useState<string | null>(null);
     const [streak, setStreak] = useState<{ playerId: number | null; count: number }>({ playerId: null, count: 0 });
+
+    // Restore Winner State from Data (Fix for Reload Bug)
+    useEffect(() => {
+        if (gameData.gameMode === '1vs1' && gameData.raceTo > 0) {
+            const p1 = gameData.players1vs1[0];
+            const p2 = gameData.players1vs1[1];
+            // Only set winner if not already set to avoid loops, but ensure it matches data
+            if (p1.score >= gameData.raceTo) {
+                 setWinner(prev => prev === p1.name ? prev : p1.name);
+            } else if (p2.score >= gameData.raceTo) {
+                 setWinner(prev => prev === p2.name ? prev : p2.name);
+            } else {
+                 setWinner(null);
+            }
+        } else {
+            setWinner(null);
+        }
+    }, [gameData.players1vs1, gameData.raceTo, gameData.gameMode]);
+
+    // Haptic Feedback Utility
+    const vibrate = useCallback((pattern: number | number[]) => {
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+            navigator.vibrate(pattern);
+        }
+    }, []);
 
     // History Helper
     const addHistory = useCallback((prevData: GameData, msg: string, type: HistoryFilter = 'info'): HistoryEntry[] => {
@@ -45,7 +70,10 @@ export const useGameLogic = ({
             return;
         }
 
-        if (winner) return;
+        if (winner && delta > 0) return; // Prevent adding score if winner exists (allow subtract to correct)
+
+        // Haptic Feedback for score change
+        vibrate(delta > 0 ? 50 : 30);
 
         // Streak Logic
         if (delta > 0) {
@@ -65,9 +93,10 @@ export const useGameLogic = ({
                     playerName = p.name;
                     oldScore = p.score;
                     newScore = Math.max(0, p.score + delta);
-                    if (newScore === gameData.raceTo && gameData.raceTo > 0) {
-                        setWinner(p.name);
+                    if (newScore === gameData.raceTo && gameData.raceTo > 0 && delta > 0) {
+                        // Winner logic handled by useEffect, but trigger effects here
                         playSound('WIN');
+                        vibrate([100, 50, 100, 50, 200]); 
                     }
                     return { ...p, score: newScore };
                 }
@@ -97,7 +126,24 @@ export const useGameLogic = ({
         const changeStr = delta > 0 ? `+${delta}` : `${delta}`;
         newData.history = addHistory(newData, `${playerName}: ${changeStr} (${oldScore} → ${newScore})`, 'score');
         handleUpdate(newData);
-    }, [gameData, winner, streak, isHost, sendCommand, handleUpdate, addHistory, playSound]);
+    }, [gameData, winner, streak, isHost, sendCommand, handleUpdate, addHistory, playSound, vibrate]);
+
+    // Break Toggle Logic
+    const toggleBreak = useCallback(() => {
+        if (!isHost || gameData.gameMode !== '1vs1') return;
+        
+        const currentBreakId = gameData.breakPlayerId;
+        const p1 = gameData.players1vs1[0];
+        const p2 = gameData.players1vs1[1];
+        
+        // If no break set (e.g. older version data), default to P1. If set, swap.
+        const nextBreakId = (currentBreakId === p1.id) ? p2.id : p1.id;
+        
+        const newData = { ...gameData, breakPlayerId: nextBreakId };
+        vibrate(20);
+        handleUpdate(newData);
+    }, [gameData, isHost, handleUpdate, vibrate]);
+
 
     // Name Editing
     const editName = useCallback((mode: '1vs1' | 'den', id: number, newName: string) => {
@@ -176,11 +222,22 @@ export const useGameLogic = ({
 
     const resetGame = useCallback(() => {
         const newData = JSON.parse(JSON.stringify(DEFAULT_GAME_DATA));
+        // Preserve player names and unit price settings, just reset scores/history
+        newData.gameMode = gameData.gameMode;
+        newData.raceTo = gameData.raceTo;
+        newData.unitPrice = gameData.unitPrice;
+        newData.tableBill = 0;
+        if (gameData.gameMode === '1vs1') {
+             newData.players1vs1 = gameData.players1vs1.map(p => ({...p, score: 0}));
+        } else {
+             newData.playersDen = gameData.playersDen.map(p => ({...p, score: 0}));
+        }
+        
         newData.history = [{ id: Date.now(), time: getCurrentTime(), text: "Bắt đầu trận đấu mới", type: 'system', snapshot: '' }];
         setWinner(null);
         setStreak({ playerId: null, count: 0 });
         handleUpdate(newData);
-    }, [handleUpdate]);
+    }, [handleUpdate, gameData]);
 
     return {
         winner,
@@ -188,6 +245,7 @@ export const useGameLogic = ({
         streak,
         setStreak,
         updateScore,
+        toggleBreak,
         editName,
         addPlayerDen,
         removePlayerDen,
