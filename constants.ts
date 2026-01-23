@@ -36,7 +36,6 @@ export const DEFAULT_GAME_DATA: GameData = {
     playersDen: [
         { id: 1, name: 'PLAYER A', score: 0, personal: 0, colorIdx: 0 },
         { id: 2, name: 'PLAYER B', score: 0, personal: 0, colorIdx: 1 },
-        { id: 3, name: 'PLAYER C', score: 0, personal: 0, colorIdx: 2 },
     ],
     shotClock: {
         seconds: 30,

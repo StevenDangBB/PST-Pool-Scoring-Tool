@@ -114,55 +114,55 @@ const TeamPlayerCard: React.FC<TeamPlayerCardProps> = ({ player, index, updateSc
                 theme="info"
             />
 
-            <div className={`relative flex-1 min-h-[120px] flex flex-col p-4 rounded-[2.5rem] border overflow-hidden transition-all duration-500 ${color.card} ${statusClass}`}>
+            <div className={`relative flex-1 min-h-[80px] flex flex-col px-3 py-2 rounded-[2rem] border overflow-hidden transition-all duration-500 ${color.card} ${statusClass}`}>
                 <PlayerWatermark name={player.name} colorClass={color.watermark} />
                 <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${color.bar}`}></div>
                 
                 <div className="relative z-10 flex items-center h-full w-full gap-2 mt-0">
                     {isManageMode ? (
-                        <button onClick={() => movePlayer(index, 1)} className="w-12 h-12 flex-none rounded-full flex items-center justify-center bg-white/40 dark:bg-black/20 text-slate-500 active:scale-90 transition-all backdrop-blur-sm">
-                            <Icon name="chevronDown" size={24} />
+                        <button onClick={() => movePlayer(index, 1)} className="w-10 h-10 flex-none rounded-full flex items-center justify-center bg-white/40 dark:bg-black/20 text-slate-500 active:scale-90 transition-all backdrop-blur-sm">
+                            <Icon name="chevronDown" size={20} />
                         </button>
                     ) : (
-                        <button onClick={() => updateScore('den', player.id, -1)} className={`rounded-full flex-none w-12 h-12 flex items-center justify-center bg-transparent text-slate-500 ${color.btn} active:scale-90 transition-all`}>
-                            <Icon name="chevronLeft" size={28} />
+                        <button onClick={() => updateScore('den', player.id, -1)} className={`rounded-full flex-none w-10 h-10 md:w-12 md:h-12 flex items-center justify-center bg-transparent text-slate-500 ${color.btn} active:scale-90 transition-all`}>
+                            <Icon name="chevronLeft" size={24} className="md:w-7 md:h-7" />
                         </button>
                     )}
 
-                    <div className="flex-1 flex flex-col items-center justify-center overflow-hidden w-full">
+                    <div className="flex-1 flex flex-col items-center justify-center overflow-hidden w-full h-full">
                         <div className="relative flex items-center justify-center w-full pl-2">
                             {!isManageMode && statusIcon && (
                                 <div className="absolute left-0 top-1/2 -translate-y-1/2 flex items-center">
                                     {statusIcon}
                                 </div>
                             )}
-                            <input type="text" value={player.name} onChange={(e) => editName('den', player.id, e.target.value)} className="text-center bg-transparent font-black uppercase text-xl md:text-2xl opacity-80 focus:opacity-100 focus:outline-none truncate w-full px-1" placeholder="NAME"/>
+                            <input type="text" value={player.name} onChange={(e) => editName('den', player.id, e.target.value)} className="text-center bg-transparent font-black uppercase text-lg md:text-xl opacity-80 focus:opacity-100 focus:outline-none truncate w-full px-1" placeholder="NAME"/>
                         </div>
 
                         <button 
                             onClick={() => { if (!isManageMode && currentTotal !== 0) setShowBalanceConfirm(true); }}
                             disabled={isManageMode}
-                            className={`relative text-6xl md:text-7xl font-black tabular-nums transition-all leading-none ${isManageMode ? 'opacity-50' : 'active:scale-95'} ${player.score < 0 ? 'text-red-500' : player.score > 0 ? color.text.replace('text-', 'text-') : 'opacity-20'}`}
+                            className={`relative text-5xl md:text-6xl font-black tabular-nums transition-all leading-none ${isManageMode ? 'opacity-50' : 'active:scale-95'} ${player.score < 0 ? 'text-red-500' : player.score > 0 ? color.text.replace('text-', 'text-') : 'opacity-20'}`}
                         >
                             <span className="inline-block relative">
-                                {player.score < 0 && <span className="absolute right-full mr-2 opacity-100">-</span>}
+                                {player.score < 0 && <span className="absolute right-full mr-1 md:mr-2 opacity-100">-</span>}
                                 {Math.abs(player.score)}
                             </span>
                         </button>
                     </div>
 
                     {isManageMode ? (
-                        <div className="flex flex-col gap-2">
-                             <button onClick={() => setShowDeleteConfirm(true)} className="w-12 h-12 flex-none rounded-full flex items-center justify-center bg-red-100 dark:bg-red-900/30 text-red-500 active:scale-90 transition-all backdrop-blur-sm">
-                                <Icon name="trash" size={20} />
+                        <div className="flex flex-col gap-1 md:gap-2">
+                             <button onClick={() => setShowDeleteConfirm(true)} className="w-10 h-10 flex-none rounded-full flex items-center justify-center bg-red-100 dark:bg-red-900/30 text-red-500 active:scale-90 transition-all backdrop-blur-sm">
+                                <Icon name="trash" size={18} />
                             </button>
-                             <button onClick={() => movePlayer(index, -1)} className="w-12 h-12 flex-none rounded-full flex items-center justify-center bg-white/40 dark:bg-black/20 text-slate-500 active:scale-90 transition-all backdrop-blur-sm">
-                                <Icon name="chevronUp" size={24} />
+                             <button onClick={() => movePlayer(index, -1)} className="w-10 h-10 flex-none rounded-full flex items-center justify-center bg-white/40 dark:bg-black/20 text-slate-500 active:scale-90 transition-all backdrop-blur-sm">
+                                <Icon name="chevronUp" size={20} />
                             </button>
                         </div>
                     ) : (
-                        <button onClick={() => updateScore('den', player.id, 1)} className={`rounded-full flex-none w-12 h-12 flex items-center justify-center bg-transparent text-slate-500 ${color.btn} active:scale-90 transition-all`}>
-                            <Icon name="chevronRight" size={28} />
+                        <button onClick={() => updateScore('den', player.id, 1)} className={`rounded-full flex-none w-10 h-10 md:w-12 md:h-12 flex items-center justify-center bg-transparent text-slate-500 ${color.btn} active:scale-90 transition-all`}>
+                            <Icon name="chevronRight" size={24} className="md:w-7 md:h-7" />
                         </button>
                     )}
                 </div>
